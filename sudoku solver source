@@ -1,0 +1,229 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.util.Random;
+
+
+public class SudokuSolverGUI extends JFrame {
+    private JPanel sudokuPanel;
+    private JButton solveButton;
+    private JButton newPuzzleButton;
+    private JButton clearButton;
+    private JTextField[][] sudokuCells;
+
+    public SudokuSolverGUI() {
+        setTitle("Sudoku Solver and Generator");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLayout(new BorderLayout());
+
+        sudokuPanel = new JPanel();
+        sudokuPanel.setLayout(new GridLayout(9, 9));
+        sudokuCells = new JTextField[9][9];
+
+        // Initialize the grid cells with text fields
+        for (int i = 0; i < 9; i++) {
+            for (int j = 0; j < 9; j++) {
+                sudokuCells[i][j] = new JTextField(1);
+                sudokuPanel.add(sudokuCells[i][j]);
+            }
+        }
+
+        solveButton = new JButton("Solve");
+        newPuzzleButton = new JButton("New Puzzle");
+        clearButton = new JButton("Clear");
+
+        solveButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                solveSudoku();
+            }
+        });
+
+        newPuzzleButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                generateRandomPuzzle();
+            }
+        });
+
+        clearButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                clearGrid();
+            }
+        });
+
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.add(solveButton);
+        buttonPanel.add(newPuzzleButton);
+        buttonPanel.add(clearButton);
+
+        add(sudokuPanel, BorderLayout.CENTER);
+        add(buttonPanel, BorderLayout.SOUTH);
+
+        pack();
+        setLocationRelativeTo(null); // Center window
+        setVisible(true);
+    }
+
+    private void solveSudoku() {
+        int[][] grid = readSudokuFromInput();
+        if (grid != null) {
+            SudokuSolver solver = new SudokuSolver(grid);
+            if (solver.solve()) {
+                updateGrid(solver.getSolution());
+                JOptionPane.showMessageDialog(this, "Sudoku solved successfully!");
+            } else {
+                JOptionPane.showMessageDialog(this, "No solution exists for this Sudoku.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void generateRandomPuzzle() {
+        SudokuGenerator generator = new SudokuGenerator();
+        int[][] puzzle = generator.generateNewSudokuProblem();
+        updateGrid(puzzle);
+    }
+
+    private void clearGrid() {
+        // Clear all text fields
+        for (int i = 0; i < 9; i++) {
+            for (int j = 0; j < 9; j++) {
+                sudokuCells[i][j].setText("");
+            }
+        }
+    }
+
+    private int[][] readSudokuFromInput() {
+        int[][] grid = new int[9][9];
+        try {
+            for (int i = 0; i < 9; i++) {
+                for (int j = 0; j < 9; j++) {
+                    String value = sudokuCells[i][j].getText().trim();
+                    if (!value.isEmpty()) {
+                        grid[i][j] = Integer.parseInt(value);
+                    } else {
+                        grid[i][j] = 0; // Empty cells represented by 0
+                    }
+                }
+            }
+            return grid;
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "Invalid input. Please enter valid numbers.", "Error", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+    }
+
+    private void updateGrid(int[][] grid) {
+        // Update text fields with the solved/generated Sudoku grid
+        for (int i = 0; i < 9; i++) {
+            for (int j = 0; j < 9; j++) {
+                sudokuCells[i][j].setText(String.valueOf(grid[i][j]));
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(SudokuSolverGUI::new);
+    }
+}
+class SudokuSolver {
+    private int[][] grid;
+
+    public SudokuSolver(int[][] grid) {
+        this.grid = grid;
+    }
+
+    public boolean solve() {
+        return solveSudoku(0, 0);
+    }
+
+    private boolean solveSudoku(int row, int col) {
+        if (row == 9) {
+            row = 0;
+            if (++col == 9) {
+                return true; // Entire grid solved
+            }
+        }
+
+        if (grid[row][col] != 0) {
+            return solveSudoku(row + 1, col);
+        }
+
+        for (int num = 1; num <= 9; num++) {
+            if (isValid(row, col, num)) {
+                grid[row][col] = num;
+                if (solveSudoku(row + 1, col)) {
+                    return true;
+                }
+            }
+        }
+
+        grid[row][col] = 0; // Backtrack
+        return false;
+    }
+
+    private boolean isValid(int row, int col, int num) {
+        for (int i = 0; i < 9; i++) {
+            if (grid[row][i] == num || grid[i][col] == num) {
+                return false; // Check row and column
+            }
+        }
+
+        int startRow = row - row % 3;
+        int startCol = col - col % 3;
+        for (int i = startRow; i < startRow + 3; i++) {
+            for (int j = startCol; j < startCol + 3; j++) {
+                if (grid[i][j] == num) {
+                    return false; // Check 3x3 sub-grid
+                }
+            }
+        }
+
+        return true;
+    }
+
+    public int[][] getSolution() {
+        return grid;
+    }
+}
+
+
+
+class SudokuGenerator {
+    private int[][] puzzle;
+    private static final int SIZE = 9;
+    private static final int EMPTY = 0;
+    private static final int NUM_EMPTY_CELLS = 40; // Adjust the number of empty cells as desired
+
+    public int[][] generateNewSudokuProblem() {
+        puzzle = new int[SIZE][SIZE];
+        fillGrid();
+        removeCells();
+        return puzzle;
+    }
+
+    private boolean fillGrid() {
+        Random random = new Random();
+        for (int row = 0; row < SIZE; row++) {
+            for (int col = 0; col < SIZE; col++) {
+                puzzle[row][col] = (row * 3 + row / 3 + col) % 9 + 1;
+            }
+        }
+        return true;
+    }
+
+    private void removeCells() {
+        Random random = new Random();
+        int count = NUM_EMPTY_CELLS;
+        while (count > 0) {
+            int row = random.nextInt(SIZE);
+            int col = random.nextInt(SIZE);
+            if (puzzle[row][col] != EMPTY) {
+                puzzle[row][col] = EMPTY;
+                count--;
+            }
+        }
+    }
+}
